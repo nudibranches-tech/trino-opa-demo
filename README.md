@@ -106,25 +106,26 @@ curl -k https://coordinator:8443/v1/statement/ \
 ### Setup S3 environment
 create a s3 bucket for this project and upload test data to s3 bucket
 
+```
+source .env
 
-replace endpoint-url if not running minio at all.
-```
-while read line; do if [[ ! "$line" =~ ^# ]]; then export $line; fi; done < .env;
-AWS_ACCESS_KEY_ID=${STORE_KEY} AWS_SECRET_ACCESS_KEY=${STORE_SECRET} \
-aws s3 --endpoint-url http://localhost:9005 mb s3://my-trino-dataset
-```
-I used by google fit app data for this
+export AWS_ACCESS_KEY_ID=${STORE_KEY} 
+export AWS_SECRET_ACCESS_KEY=${STORE_SECRET}
 
-```
-AWS_ACCESS_KEY_ID=${STORE_KEY} AWS_SECRET_ACCESS_KEY=${STORE_SECRET} \
+#todo manualy for now
+mcli alias set localMinio http://localhost:9000 ${STORE_KEY} ${STORE_SECRET}
+mcli mb --ignore-existing localMinio/my-trino-dataset  
+#todo manualy for now
+
 aws s3 --endpoint-url http://localhost:9005 cp hive/sampledata.csv s3://my-trino-dataset/data/fit/load_date=2021-03-06/
+aws s3 --endpoint-url http://localhost:9005 cp --recursive hive/output s3://my-trino-dataset/data/finance/output
 ```
 
 also upload sample finance data to another slice in the same bucket
 
 ```
 AWS_ACCESS_KEY_ID=${STORE_KEY} AWS_SECRET_ACCESS_KEY=${STORE_SECRET} \
-aws s3 --endpoint-url http://localhost:9005 cp --recursive hive/output s3://my-trino-dataset/data/finance/output
+
 ```
 
 Let's list the data in object storage to verify that the upload is successful
@@ -155,6 +156,9 @@ Refer to [CredentialsFactory.java](./hive-authz/src/main/java/com/github/skhatri
 Next, login to hive and create the activity table. Register a new partition also
 
 ```shell
+
+chmod -R 777 ./hive/data
+
 make hive-cli
 ```
 
@@ -306,8 +310,7 @@ There are 5 versions of the activity dataset for 5 date partitions. The last ver
 #### Show latest
 
 ```sql
-select count(*)
-from hive.finance.activity;
+select count(*) from hive.finance.activity;
 ```
 
 |_col0|
@@ -412,7 +415,7 @@ docker-compose start worker-1
 Let's login as user1 and explore their privileges.
 
 ```shell
-./trino --debug --user=user1 --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://localhost:8443
+trino --debug --user=user1 --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://localhost:8443
 ```
 
 While the ```show catalogs;``` command lists the available catalogs. Listing schema in one of the catalogs like tpch will only show information_schema.

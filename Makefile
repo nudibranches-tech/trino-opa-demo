@@ -4,13 +4,15 @@ TARGET=coordinator
 
 
 trino:
-	@./trino --debug --user=admin --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://localhost:8443
+	@trino --debug --user=admin --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://localhost:8443
 
 trino-k8s:
-	@./trino --debug --user=admin --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://coordinator:32538
+	@trino --debug --user=admin --password --truststore-path=./certs/truststore.jks --truststore-password=password --server https://coordinator:32538
 
 start: up
 up:
+	@make down
+	@opa build -o ./bundle/bundle.tar.gz ./opa/policy/example.rego 
 	@docker-compose --env-file .env up -d
 
 stop: down
@@ -34,3 +36,4 @@ build:
 build-hive:
 	@gradle clean build -q
 	@docker-compose build hive
+	

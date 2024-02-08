@@ -158,17 +158,12 @@ services:
 
     #AWS_ACCESS_KEY_ID=minio AWS_SECRET_ACCESS_KEY=minio123 aws s3 --endpoint-url http://localhost:9005 ls s3://
     minio: 
-      image: ${REPO}minio/minio:RELEASE.2022-03-03T21-21-16Z
-      #command: "server /data --console-address :9001"
-      #s3 backend can be set to "gateway s3" or "server /data"
-      #if this command fails, replace S3_BACKEND with one of the desired values
-      command: "${S3_BACKEND} --address :9000 --console-address :9001"
+      image: minio/minio:latest
+      command: "server /data --console-address :9001"
       container_name: "minio"
       environment:
         - MINIO_ROOT_USER=${STORE_KEY}
         - MINIO_ROOT_PASSWORD=${STORE_SECRET}
-        - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY}
-        - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       volumes:
         - ./minio/data:/data 
       networks:
@@ -181,6 +176,41 @@ services:
       ports:
         - "9005:9000"
         - "9001:9001"
+
+    createbuckets:
+      image: minio/mc
+      depends_on:
+        - minio
+      entrypoint: >
+        /bin/sh -c "
+        /usr/bin/mc alias set myminio http://minio:9000 minio minio123;
+        /usr/bin/mc mb myminio/my-trino-dataset;
+        /usr/bin/mc policy set public myminio/my-trino-dataset;
+        exit 0;
+        "
+
+    opa:
+      image: openpolicyagent/opa:0.40.0-rootless
+      ports:
+        - "8181:8181"
+      command:
+        - "run"
+        - "--server"
+        - "--log-format=json-pretty"
+        - "--set=decision_logs.console=true"
+        - "--set=services.nginx.url=http://bundle_server"
+        - "--set=bundles.nginx.service=nginx"
+        - "--set=bundles.nginx.resource=bundle.tar.gz"
+        - "--set=bundles.nginx.polling.min_delay_seconds=10"
+        - "--set=bundles.nginx.polling.max_delay_seconds=30"
+      depends_on:
+        - bundle_server
+    bundle_server:
+      image: nginx
+      ports:
+        - 8888:80
+      volumes:
+        - ./bundle/:/usr/share/nginx/html/
 
 networks:
   ntrino: {}

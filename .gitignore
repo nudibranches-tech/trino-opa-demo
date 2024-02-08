@@ -18,4 +18,4 @@ lib
 .gradle
 .idea
 bin
-
+minio/data/
